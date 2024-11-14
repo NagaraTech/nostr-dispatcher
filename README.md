@@ -53,8 +53,8 @@ The main components of the project are:
 ## API Endpoints
 
 - `/api/message/submit`: submit the message
-- `/api/message/list`: get the message list
-
+- `/api/message/list`: get the message which user send to the dispatcher
+- `/api/message/record`: get the record which dispatcher send to relay
 ## Configuration
 
 Edit the config `dispatcher.toml`

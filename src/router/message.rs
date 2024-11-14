@@ -1,5 +1,6 @@
 use crate::error::AppError;
 use crate::models::message::{CreateMessage, Message, MessageFilter};
+use crate::models::record::{Record, RecordFilter};
 use crate::server::server::SharedState;
 use axum::extract::{Query, State};
 use axum::{debug_handler, Json};
@@ -100,6 +101,42 @@ pub async fn list(
     let page_size = page_params.page_size.unwrap_or(10);
 
     let mut r = Message::paginate(&mut conn, page - 1, page_size, filter)?;
+    r.page = r.page + 1;
+    Ok(Json(json!({
+        "result": r,
+    })))
+}
+
+
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RecordListParams {
+    pub id: Option<String>,
+    pub event_id: Option<String>,
+    pub relay: Option<String>,
+    pub message_id: Option<String>,
+    pub status: Option<String>,
+}
+
+pub async fn record(
+    State(server): State<SharedState>,
+    Query(list_params): Query<RecordListParams>,
+    Query(page_params): Query<PageParams>,
+) -> anyhow::Result<Json<Value>, AppError> {
+    let server = server.0.write().await;
+    let mut conn = server.pg.get()?;
+    let filter = RecordFilter {
+        id: list_params.id,
+        message_id: list_params.message_id,
+        event_id: list_params.event_id,
+        status: list_params.status,
+        relay: list_params.relay,
+        ..Default::default()
+    };
+    let page = page_params.page.unwrap_or(1);
+    let page_size = page_params.page_size.unwrap_or(10);
+
+    let mut r = Record::paginate(&mut conn, page - 1, page_size, filter)?;
     r.page = r.page + 1;
     Ok(Json(json!({
         "result": r,

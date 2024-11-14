@@ -63,6 +63,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/api/message/submit", post(router::message::submit))
         .route("/api/message/list", get(router::message::list))
+        .route("/api/message/record", get(router::message::record))
         .with_state(server)
         .layer(cors)
         .layer(
