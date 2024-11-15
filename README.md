@@ -55,6 +55,11 @@ The main components of the project are:
 - `/api/message/submit`: submit the message
 - `/api/message/list`: get the message which user send to the dispatcher
 - `/api/message/record`: get the record which dispatcher send to relay
+
+- `/api/relay/register`: register a relay
+- `/api/relay/remove`: remove a relay
+- `/api/relay/list`: rget the realy list
+
 ## Configuration
 
 Edit the config `dispatcher.toml`
