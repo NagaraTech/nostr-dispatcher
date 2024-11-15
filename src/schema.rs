@@ -24,7 +24,17 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    relays (id) {
+        id -> Varchar,
+        url -> Varchar,
+        info -> Json,
+        created_at -> Timestamp,
+    }
+}
+
 diesel::allow_tables_to_appear_in_same_query!(
     message,
     record,
+    relays,
 );

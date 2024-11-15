@@ -20,3 +20,10 @@ CREATE TABLE "record"(
 	"info" JSON NOT NULL,
 	"created_at" TIMESTAMP NOT NULL
 );
+
+CREATE TABLE "relays"(
+	"id" VARCHAR NOT NULL PRIMARY KEY,
+	"url" VARCHAR NOT NULL,
+	"info" JSON NOT NULL,
+	"created_at" TIMESTAMP NOT NULL
+);

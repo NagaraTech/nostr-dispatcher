@@ -8,3 +8,4 @@ pub mod models;
 pub mod schema;
 pub mod service;
 pub mod router;
+pub mod channel;

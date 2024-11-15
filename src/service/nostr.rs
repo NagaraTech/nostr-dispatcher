@@ -5,8 +5,10 @@ use nostr_sdk::{Client, EventBuilder, Filter, Kind, RelayPoolNotification, Secre
 use serde_json::json;
 use tokio::sync::mpsc;
 
+use crate::channel::RelayCommand;
 use crate::models::message::{self, UpdateMessage};
 use crate::models::record::CreateRecord;
+use crate::models::relays;
 use crate::{config::CustomConfig, server::server::SharedState};
 
 use nostr::prelude::*;
@@ -101,6 +103,7 @@ pub async fn final_message(
 pub async fn sync_message(
     server: SharedState,
     mut message_rx: mpsc::Receiver<message::Message>,
+    mut relays_rx: mpsc::Receiver<RelayCommand>,
     config: CustomConfig
 ) -> anyhow::Result<()> {
     tracing::debug!("mnemonic {:#?}", config.mnemonic);
@@ -118,6 +121,19 @@ pub async fn sync_message(
 
     }
     client.connect().await;
+    let ac = client.clone();
+    let r = tokio::spawn(async move {
+        while let Some(relay) = relays_rx.recv().await {
+            match relay {
+                RelayCommand::Add(relays) => {
+                    ac.add_relay(relays.url).await;
+                },
+                RelayCommand::Remove(relays) => {
+                    ac.remove_relay(relays.url).await;
+                },
+            }
+        }
+    });
     while let Some(m) = message_rx.recv().await {
         // let event = EventBuilder::job_request(Kind::BookmarkSet, tags)
         // client.send_msg(msg);
@@ -131,5 +147,6 @@ pub async fn sync_message(
             },
         }
     }
+    r.await;
     Ok(())
 }

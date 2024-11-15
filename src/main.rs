@@ -1,3 +1,4 @@
+use dispatcher::channel::RelayCommand;
 use dispatcher::config::CustomConfig;
 use dispatcher::error::handle_error;
 use dispatcher::server::server::SharedState;
@@ -17,6 +18,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::Level;
 use tracing_subscriber::EnvFilter;
 use dispatcher::models::message;
+use dispatcher::models::relays;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -44,19 +46,13 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers(Any);
 
     let (dispatch_messate_tx, dispatch_message_rx) = mpsc::channel::<message::Message>(200);
+    let (relays_tx, relays_rx) = mpsc::channel::<RelayCommand>(200);
 
-    let server = SharedState::new(config, dispatch_messate_tx.clone()).await;
-
-    // let nostr_sub_task = tokio::spawn(dispatcher::service::nostr::subscription_service(
-    //     server.clone(),
-    //     job_status_rx,
-    //     dispatch_task_tx.clone(),
-    //     secret_key,
-    //     custom_config.default_relay.unwrap_or("ws://localhost:8080".into())
-    // ));
+    let server = SharedState::new(config, dispatch_messate_tx.clone(), relays_tx.clone()).await;
     let nostr_sub_task = tokio::spawn(dispatcher::service::nostr::sync_message(
         server.clone(),
         dispatch_message_rx,
+        relays_rx,
         custom_config.clone(),
     ));
     // build our application with a single route
@@ -64,6 +60,11 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/message/submit", post(router::message::submit))
         .route("/api/message/list", get(router::message::list))
         .route("/api/message/record", get(router::message::record))
+
+        .route("/api/relay/register", post(router::relay::register))
+        .route("/api/relay/remove", post(router::relay::remove))
+        .route("/api/relay/list", get(router::relay::list))
+
         .with_state(server)
         .layer(cors)
         .layer(

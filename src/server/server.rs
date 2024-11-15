@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
+use crate::channel::RelayCommand;
 use crate::config::Config;
 use crate::models::message;
 
@@ -22,7 +23,7 @@ pub struct Server {
     pub ecdsa_signer: PrivateKeySigner,
     pub pg: Pool<ConnectionManager<PgConnection>>,
     pub worker_channels: HashMap<String, mpsc::Sender<Message>>,
-    pub operator_channels: HashMap<String, mpsc::Sender<Message>>,
+    pub relays_tx: mpsc::Sender<RelayCommand>,
     pub dispatch_task_tx: Option<mpsc::Sender<message::Message>>,
 }
 
@@ -33,8 +34,9 @@ impl SharedState {
     pub async fn new(
         config: Config,
         dispatch_task_tx: mpsc::Sender<message::Message>,
+        relays_tx: mpsc::Sender<RelayCommand>,
     ) -> Self {
-        let server = Server::new(config, dispatch_task_tx).await;
+        let server = Server::new(config, dispatch_task_tx, relays_tx).await;
         SharedState(Arc::new(RwLock::new(server)))
     }
 }
@@ -52,6 +54,7 @@ impl Server {
     pub async fn new(
         config: Config,
         dispatch_task_tx: mpsc::Sender<message::Message>,
+        relays_tx: mpsc::Sender<RelayCommand>,
     ) -> Self {
         // let mut csprng = OsRng;
         // let sign_key = SigningKey::generate(&mut csprng);
@@ -95,7 +98,7 @@ impl Server {
             ecdsa_signer,
             pg,
             worker_channels: Default::default(),
-            operator_channels: Default::default(),
+            relays_tx,
             dispatch_task_tx: Some(dispatch_task_tx),
         }
     }
