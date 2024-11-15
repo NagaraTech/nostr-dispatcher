@@ -126,10 +126,16 @@ pub async fn sync_message(
         while let Some(relay) = relays_rx.recv().await {
             match relay {
                 RelayCommand::Add(relays) => {
-                    ac.add_relay(relays.url).await;
+                    tracing::debug!("add relays");
+                    let result = ac.add_relay(relays.url).await;
+                    ac.connect().await;
+                    tracing::debug!("{:#?}", result);
                 },
                 RelayCommand::Remove(relays) => {
-                    ac.remove_relay(relays.url).await;
+                    let result = ac.remove_relay(relays.url).await;
+                    ac.connect().await;
+                    tracing::debug!("{:#?}", result);
+
                 },
             }
         }
@@ -142,8 +148,8 @@ pub async fn sync_message(
             Ok(_) => {
                 tracing::debug!("send message success");
             },
-            Err(_) => {
-                tracing::error!("send message error");
+            Err(err) => {
+                tracing::error!("send message error {:#?}", err);
             },
         }
     }
