@@ -14,6 +14,7 @@ use tokio::sync::{mpsc, RwLock};
 use crate::channel::RelayCommand;
 use crate::config::Config;
 use crate::models::message;
+use crate::models::relays::{Relays, RelaysFilter};
 
 #[derive(Debug, Clone)]
 pub struct Server {
@@ -91,6 +92,15 @@ impl Server {
         let mut conn = pg.get().expect("Failed to get conn.");
 
         run_migration(&mut conn).expect("run migration error");
+
+        let relays = Relays::paginate(&mut conn, 0, 10, RelaysFilter::default());
+        if let Ok(r) = relays {
+            tracing::debug!("start add relay");
+            for relay in r.items {
+                tracing::debug!("add relay {}", relay.url);
+                let _ = relays_tx.send(RelayCommand::Add(relay)).await;
+            }  
+        };
         Self {
             config,
             sign_key,
