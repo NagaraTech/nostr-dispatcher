@@ -1,5 +1,7 @@
 use crate::error::AppError;
+use crate::models::clock::{Clock, CreateClock, UpdateClock};
 use crate::models::message::{CreateMessage, Message, MessageFilter};
+use crate::models::message_clock::{CreateMessageClock, MessageClock};
 use crate::models::record::{Record, RecordFilter};
 use crate::server::server::SharedState;
 use axum::extract::{Query, State};
@@ -28,10 +30,10 @@ pub async fn submit(
     let id = uuid.to_string();
     let ms: MessageSubmit = serde_json::from_value(req.clone())?;
     let cm = CreateMessage {
-        id: id,
-        from: ms.from,
-        to: ms.to,
-        action: ms.action,
+        id: id.clone(),
+        from: ms.from.clone(),
+        to: ms.to.clone(),
+        action: ms.action.clone(),
         status: "pending".to_string(),
         info: req,
         created_at: chrono::Local::now().naive_utc(),  
@@ -50,6 +52,66 @@ pub async fn submit(
     let m = Message::create(&mut conn, &cm)?;
     // dispatch task
 
+    // to
+    let to_clock = match Clock::read(&mut conn, ms.to.clone()) {
+        Ok(mut c) => {
+            // c.value = c.value + 1;
+            c
+        },
+        Err(_) => {
+            let new_clock = CreateClock {
+                id: ms.to.clone(),
+                value: 0,
+                info: json!({}),
+                created_at: chrono::Local::now().naive_utc(),
+            };
+            Clock::create(&mut conn, &new_clock)?
+        },
+    };
+    if to_clock.value > 0 { 
+        return Ok(Json(json!({
+            "code": 200,
+            "result": m,
+        })));
+    }
+    // from 
+    let from_clock = match Clock::read(&mut conn, ms.from.clone()) {
+        Ok(mut c) => {
+            // c.value = c.value + 1;
+            c
+        },
+        Err(_) => {
+            let new_clock = CreateClock {
+                id: ms.from.clone(),
+                value: 0,
+                info: json!({}),
+                created_at: chrono::Local::now().naive_utc(),
+            };
+            Clock::create(&mut conn, &new_clock)?
+        },
+    };
+    let update_to_clock = UpdateClock {
+        value: Some(to_clock.value + 1),
+        ..Default::default()
+    };
+    let final_to_clock = Clock::update(&mut conn, to_clock.id, &update_to_clock)?;
+    let update_from_clock = UpdateClock {
+        value: Some(from_clock.value + 1),
+        ..Default::default()
+    };
+    let final_from_clock = Clock::update(&mut conn, from_clock.id, &update_from_clock)?;
+
+    let cmc = CreateMessageClock {
+        id: id.clone(),
+        from: ms.from.clone(),
+        to: ms.to.clone(),
+        status: "complete".to_string(),
+        created_at: chrono::Local::now().naive_utc(),
+        from_clock: final_from_clock.value,
+        to_clock: final_to_clock.value,
+        action: ms.action.clone()  
+    };
+    MessageClock::create(&mut conn, &cmc)?;
     if let Err(err) = dispatch_tx.send(m.clone()).await {
         tracing::error!("dispatch task when submit job {}", err);
     }
